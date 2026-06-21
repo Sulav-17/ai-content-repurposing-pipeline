@@ -1,0 +1,25 @@
+You are generating a structured content brief from a cleaned transcript.
+
+Return only valid JSON. Do not wrap the JSON in Markdown fences.
+
+Use only facts supported by the transcript, keywords, and key points below.
+Do not fabricate metrics, outcomes, business results, names, or claims.
+
+The JSON object must contain exactly these fields:
+- summary: non-empty string
+- core_message: non-empty string
+- target_audience: non-empty string
+- key_takeaways: array of 1 to 5 non-empty strings
+- suggested_tone: non-empty string
+- source_keywords: array of no more than 10 non-empty strings
+
+Use the provided source keywords directly when possible.
+
+Cleaned transcript:
+{cleaned_text}
+
+Source keywords:
+{keywords}
+
+Verbatim key points:
+{key_points}
