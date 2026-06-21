@@ -6,16 +6,19 @@ Content teams often start with long-form source material such as transcripts, au
 
 ## Planned High-Level Solution
 
-The planned system will provide a backend foundation for accepting source content, processing it through later milestone workflows, and producing structured outputs for different channels. Milestone 02 adds a deterministic transcript-cleaning boundary for pasted transcript text.
+The planned system will provide a backend foundation for accepting source content, processing it through later milestone workflows, and producing structured outputs for different channels. Milestone 03 adds deterministic local transcript analysis for frequent keywords and verbatim key points.
 
 ## Current Milestone Status
 
-Milestone 02 is in progress. The current application exposes a local FastAPI backend with:
+Milestone 03 is in progress. The current application exposes a local FastAPI backend with:
 
 - `GET /health`
 - `POST /transcripts/clean`
+- `POST /transcripts/analyze`
 
 The transcript-cleaning endpoint accepts pasted transcript text through JSON, validates it, applies deterministic local cleaning rules, and returns cleaned text with metadata.
+
+The transcript-analysis endpoint reuses the same request validation and cleaning service, then analyzes the cleaned transcript locally. It returns ranked keyword frequencies and up to five verbatim key-point sentences.
 
 ## Current Repository Structure
 
@@ -25,24 +28,30 @@ ai-content-repurposing-pipeline/
 |   |-- api/
 |   |   |-- __init__.py
 |   |   `-- routes/
+|   |       |-- analysis.py
 |   |       |-- __init__.py
 |   |       `-- transcripts.py
 |   |-- schemas/
+|   |   |-- analysis.py
 |   |   |-- __init__.py
 |   |   `-- transcript.py
 |   |-- services/
 |   |   |-- __init__.py
+|   |   |-- content_analysis_service.py
 |   |   `-- transcript_service.py
 |   |-- __init__.py
 |   `-- main.py
 |-- docs/
 |   `-- milestones/
 |       |-- milestone-01.md
-|       `-- milestone-02.md
+|       |-- milestone-02.md
+|       `-- milestone-03.md
 |-- tests/
 |   |-- integration/
+|   |   |-- test_analysis_api.py
 |   |   `-- test_transcript_api.py
 |   |-- unit/
+|   |   |-- test_content_analysis_service.py
 |   |   `-- test_transcript_service.py
 |   `-- test_health.py
 |-- .env.example
@@ -156,6 +165,86 @@ The cleaner applies these deterministic rules in order:
 
 The cleaner preserves punctuation, capitalization, timestamps, speaker labels, line order, words, and sentence meaning. It does not summarize, paraphrase, correct grammar, call an AI model, write files, or use external services.
 
+## Transcript Analysis Endpoint
+
+Submit pasted transcript text as JSON:
+
+```text
+POST /transcripts/analyze
+```
+
+Example request:
+
+```json
+{
+  "text": "  [00:00] Host:\tPython   API wins.\r\n\r\nGuest:  Python content works.  "
+}
+```
+
+Example response:
+
+```json
+{
+  "cleaned_text": "[00:00] Host: Python API wins.\nGuest: Python content works.",
+  "metadata": {
+    "original_character_count": 69,
+    "cleaned_character_count": 59,
+    "word_count": 9,
+    "line_count": 2,
+    "changed": true
+  },
+  "analysis": {
+    "sentence_count": 2,
+    "unique_word_count": 7,
+    "top_keywords": [
+      {
+        "term": "python",
+        "count": 2
+      },
+      {
+        "term": "api",
+        "count": 1
+      },
+      {
+        "term": "content",
+        "count": 1
+      }
+    ],
+    "key_points": [
+      "[00:00] Host: Python API wins.",
+      "Guest: Python content works."
+    ]
+  }
+}
+```
+
+PowerShell example:
+
+```powershell
+Invoke-RestMethod `
+  -Method Post `
+  -Uri http://127.0.0.1:8000/transcripts/analyze `
+  -ContentType "application/json" `
+  -Body '{"text":"  [00:00] Host:`tPython   API wins.`r`n`r`nGuest:  Python content works.  "}'
+```
+
+### Analysis Rules
+
+The analyzer is deterministic and local-first:
+
+1. Reuse the transcript request validation from the cleaning endpoint.
+2. Clean the transcript with the existing cleaning service.
+3. Split cleaned text into sentence candidates using `.`, `?`, `!`, and line boundaries.
+4. Preserve punctuation, capitalization, timestamps, speaker labels, and sentence wording in key points.
+5. Tokenize words with Python standard library regular expressions.
+6. Ignore common English stop words, punctuation-only fragments, numeric-only tokens, and timestamp-only fragments.
+7. Rank keywords by frequency descending, then alphabetically for ties.
+8. Score sentences using normalized global token frequencies.
+9. Remove exact duplicate key-point sentences while preserving the first occurrence.
+10. Return at most ten keywords and at most five verbatim key points.
+
+Keywords are frequent meaningful terms from the cleaned transcript. Key points are original transcript sentences selected by deterministic scoring; they are not summaries, paraphrases, or generated content.
+
 ## Run Tests
 
 ```powershell
@@ -168,8 +257,10 @@ python -m pytest -q
 - Transcript file uploads are not implemented.
 - Audio and video uploads are not implemented.
 - Transcription is not implemented.
-- Content analysis and content generation are not implemented.
+- Content generation is not implemented.
+- The analyzer is intentionally simple and deterministic; it does not understand semantics, abbreviations, sentiment, or topics.
 - No AI provider integration is implemented or required.
 - No storage, database, background job system, frontend, Docker setup, authentication, deployment, or CI/CD is implemented.
 
 Advanced infrastructure is intentionally deferred to future milestones.
+AI generation remains deferred to a future milestone.
