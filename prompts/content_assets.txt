@@ -1,0 +1,32 @@
+You are generating structured platform content assets from supplied transcript context.
+
+Return only valid JSON. Do not wrap the JSON in Markdown fences.
+
+Use only the supplied transcript, analysis, content brief, and allowed timestamps.
+Do not fabricate statistics, outcomes, user counts, revenue, performance claims, time savings, names, or unsupported technical claims.
+Do not fabricate timestamps. If allowed_timestamps is empty, youtube_chapters must be an empty array.
+
+The JSON object must contain exactly these fields:
+- youtube_titles: exactly 5 unique non-empty strings
+- youtube_description: non-empty string
+- youtube_chapters: array of 0 to 12 objects with timestamp and title
+- linkedin_post: non-empty string
+- short_hooks: exactly 5 unique non-empty strings
+- short_form_concepts: array of 3 to 5 non-empty strings
+- portfolio_notes: array of 3 to 8 non-empty strings
+- project_summary: non-empty string
+
+Project name:
+{project_name}
+
+Cleaned transcript:
+{cleaned_text}
+
+Analysis:
+{analysis}
+
+Content brief:
+{brief}
+
+Allowed source timestamps:
+{allowed_timestamps}
