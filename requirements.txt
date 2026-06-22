@@ -8,3 +8,6 @@ sqlalchemy
 alembic
 psycopg[binary]
 streamlit
+redis
+rq
+python-multipart

@@ -115,6 +115,26 @@ def test_service_serializes_and_reconstructs_complete_output(monkeypatch, tmp_pa
     engine.dispose()
 
 
+def test_service_persists_existing_generation_without_regenerating(monkeypatch, tmp_path) -> None:
+    session, engine = make_session(tmp_path)
+    monkeypatch.setattr(
+        generation_history_service,
+        "generate_content_assets",
+        lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("generation should not run")),
+    )
+
+    saved = generation_history_service.persist_generated_response(
+        session=session,
+        request=request(),
+        generation_response=generation_response(),
+    )
+
+    assert saved.generation == generation_response()
+    assert saved.generation.cleaned_text == "Host: Python API wins."
+    session.close()
+    engine.dispose()
+
+
 def test_service_rolls_back_on_commit_failure(monkeypatch, tmp_path) -> None:
     session, engine = make_session(tmp_path)
     rollback_called = []

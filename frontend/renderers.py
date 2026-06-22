@@ -125,3 +125,29 @@ def render_generation_result(result: dict[str, Any]) -> None:
 
     with st.expander("Debug JSON"):
         st.json(result)
+
+
+def render_media_job_status(job: dict[str, Any]) -> None:
+    st.markdown(f"**Job ID:** `{job['job_id']}`")
+    st.write(f"Status: {job['status']}")
+    st.write(f"Stage: {job['stage']}")
+    st.progress(job.get("progress", 0))
+
+    if job.get("error"):
+        st.error(job["error"])
+
+    transcription = job.get("transcription")
+    if transcription:
+        with st.expander("Transcript", expanded=True):
+            st.text_area(
+                "Transcript",
+                transcription.get("text", ""),
+                height=220,
+                key=f"media_transcript_{job['job_id']}",
+            )
+
+    if job.get("saved_generation_id"):
+        st.caption(f"Saved generation ID: {job['saved_generation_id']}")
+
+    if job.get("generation"):
+        render_generation_result(job["generation"])

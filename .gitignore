@@ -28,6 +28,9 @@ dist/
 # Logs
 *.log
 
+# Local media/job artifacts
+.data/
+
 # Editors
 .vscode/
 .idea/

@@ -28,6 +28,18 @@ def create_saved_generation(
         project_name=request.project_name,
         provider_name=request.provider,
     )
+    return persist_generated_response(
+        session=session,
+        request=request,
+        generation_response=generation_response,
+    )
+
+
+def persist_generated_response(
+    session: Session,
+    request: ContentGenerationRequest,
+    generation_response: ContentGenerationResponse,
+) -> SavedGenerationResponse:
     record = Generation(
         id=str(uuid4()),
         project_name=request.project_name,

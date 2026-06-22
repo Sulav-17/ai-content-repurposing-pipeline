@@ -11,6 +11,7 @@ from frontend.renderers import (
     calculate_offset,
     has_next_page,
     render_generation_result,
+    render_media_job_status,
 )
 
 
@@ -31,11 +32,13 @@ def main() -> None:
         st.success(st.session_state.success_message)
         st.session_state.success_message = None
 
-    generate_tab, history_tab = st.tabs(["Generate", "Saved History"])
+    generate_tab, history_tab, media_jobs_tab = st.tabs(["Generate", "Saved History", "Media Jobs"])
     with generate_tab:
         _render_generate_tab(client)
     with history_tab:
         _render_history_tab(client)
+    with media_jobs_tab:
+        _render_media_jobs_tab(client)
 
 
 def _initialize_state() -> None:
@@ -46,6 +49,7 @@ def _initialize_state() -> None:
         "pending_delete_id": None,
         "pending_delete_label": None,
         "success_message": None,
+        "media_job": None,
     }
     for key, value in defaults.items():
         if key not in st.session_state:
@@ -274,6 +278,133 @@ def _confirm_delete(client: ApiClient, history: dict) -> None:
             0,
         )
     st.session_state.success_message = "Deleted saved generation."
+    st.rerun()
+
+
+def _render_media_jobs_tab(client: ApiClient | None) -> None:
+    st.subheader("Media Jobs")
+    project_name = st.text_input("Media project name", key="media_project_name_input")
+    media_file = st.file_uploader(
+        "Media file",
+        type=[
+            "aac",
+            "avi",
+            "flac",
+            "m4a",
+            "mkv",
+            "mov",
+            "mp3",
+            "mp4",
+            "mpeg",
+            "mpg",
+            "ogg",
+            "opus",
+            "wav",
+            "webm",
+            "wma",
+        ],
+        key="media_file_upload",
+    )
+    provider = st.selectbox(
+        "Media provider",
+        ["deterministic", "ollama"],
+        key="media_provider_select",
+    )
+    save_result = st.checkbox("Save result", value=True, key="media_save_result")
+    language = st.text_input("Language code (optional)", key="media_language_input")
+
+    if st.button("Submit Media Job", key="submit_media_job"):
+        _submit_media_job(
+            client=client,
+            project_name=project_name,
+            media_file=media_file,
+            provider=provider,
+            save_result=save_result,
+            language=language,
+        )
+
+    current_job = st.session_state.media_job
+    if not current_job:
+        st.info("Submit a media file to create a background job.")
+        return
+
+    refresh_col, cancel_col = st.columns(2)
+    with refresh_col:
+        if st.button("Refresh Media Job", key="refresh_media_job"):
+            _refresh_media_job(client)
+    with cancel_col:
+        if st.button(
+            "Cancel Media Job",
+            key="cancel_media_job",
+            disabled=current_job.get("status") != "queued",
+        ):
+            _cancel_media_job(client)
+
+    render_media_job_status(st.session_state.media_job)
+
+
+def _submit_media_job(
+    client: ApiClient | None,
+    project_name: str,
+    media_file,
+    provider: str,
+    save_result: bool,
+    language: str,
+) -> None:
+    if client is None:
+        st.error("API client is not configured.")
+        return
+    if not project_name.strip():
+        st.error("Project name is required.")
+        return
+    if media_file is None:
+        st.error("Media file is required.")
+        return
+
+    try:
+        result = client.submit_media_job(
+            file_name=media_file.name,
+            file_bytes=media_file.getvalue(),
+            content_type=media_file.type,
+            project_name=project_name.strip(),
+            provider=provider,
+            save_result=save_result,
+            language=language.strip() or None,
+        )
+    except (ApiUnavailableError, ApiRequestError, ApiResponseError) as exc:
+        st.error(str(exc))
+        return
+
+    st.session_state.media_job = result
+    st.session_state.success_message = f"Submitted media job {result['job_id']}."
+    st.rerun()
+
+
+def _refresh_media_job(client: ApiClient | None) -> None:
+    if client is None or not st.session_state.media_job:
+        return
+    try:
+        st.session_state.media_job = client.get_media_job(st.session_state.media_job["job_id"])
+    except (ApiUnavailableError, ApiRequestError, ApiResponseError) as exc:
+        st.error(str(exc))
+
+
+def _cancel_media_job(client: ApiClient | None) -> None:
+    if client is None or not st.session_state.media_job:
+        return
+    job_id = st.session_state.media_job["job_id"]
+    try:
+        client.cancel_media_job(job_id)
+    except (ApiUnavailableError, ApiRequestError, ApiResponseError) as exc:
+        st.error(str(exc))
+        return
+    st.session_state.media_job = {
+        **st.session_state.media_job,
+        "status": "canceled",
+        "stage": "canceled",
+        "progress": 100,
+    }
+    st.session_state.success_message = f"Canceled media job {job_id}."
     st.rerun()
 
 

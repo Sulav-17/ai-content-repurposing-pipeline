@@ -66,12 +66,46 @@ class ApiClient:
             expect_no_content=True,
         )
 
+    def submit_media_job(
+        self,
+        file_name: str,
+        file_bytes: bytes,
+        content_type: str,
+        project_name: str,
+        provider: str = "deterministic",
+        save_result: bool = True,
+        language: str | None = None,
+    ) -> dict[str, Any]:
+        data = {
+            "project_name": project_name,
+            "provider": provider,
+            "save_result": str(save_result).lower(),
+        }
+        if language:
+            data["language"] = language
+        files = {"file": (file_name, file_bytes, content_type or "application/octet-stream")}
+        response = self._request_json("POST", "/media-jobs", data=data, files=files)
+        return validate_media_job_submission_response(response)
+
+    def get_media_job(self, job_id: str) -> dict[str, Any]:
+        response = self._request_json("GET", f"/media-jobs/{job_id}")
+        return validate_media_job_status_response(response)
+
+    def cancel_media_job(self, job_id: str) -> None:
+        self._request_json(
+            "DELETE",
+            f"/media-jobs/{job_id}",
+            expect_no_content=True,
+        )
+
     def _request_json(
         self,
         method: str,
         path: str,
         json: dict[str, Any] | None = None,
         params: dict[str, Any] | None = None,
+        data: dict[str, Any] | None = None,
+        files: dict[str, Any] | None = None,
         expect_no_content: bool = False,
     ) -> dict[str, Any]:
         try:
@@ -80,6 +114,8 @@ class ApiClient:
                 path,
                 json=json,
                 params=params,
+                data=data,
+                files=files,
             )
         except (httpx.TimeoutException, httpx.ConnectError, httpx.NetworkError) as exc:
             raise ApiUnavailableError("API unavailable or request timed out.") from exc
@@ -158,11 +194,45 @@ def validate_history_response(payload: dict[str, Any]) -> dict[str, Any]:
     return payload
 
 
+def validate_media_job_submission_response(payload: dict[str, Any]) -> dict[str, Any]:
+    required_keys = {"job_id", "status", "stage", "created_at"}
+    if not required_keys.issubset(payload):
+        raise ApiResponseError("Malformed API response.")
+    return payload
+
+
+def validate_media_job_status_response(payload: dict[str, Any]) -> dict[str, Any]:
+    required_keys = {
+        "job_id",
+        "status",
+        "stage",
+        "progress",
+        "created_at",
+        "started_at",
+        "finished_at",
+        "error",
+        "transcription",
+        "generation",
+        "saved_generation_id",
+    }
+    if not required_keys.issubset(payload):
+        raise ApiResponseError("Malformed API response.")
+    if not isinstance(payload["progress"], int):
+        raise ApiResponseError("Malformed API response.")
+    if payload["generation"] is not None:
+        validate_generation_response(payload["generation"])
+    return payload
+
+
 def _error_from_status(response: httpx.Response) -> Exception:
     if response.status_code == 422:
         return ApiRequestError(_validation_message(response))
     if response.status_code == 404:
         return ApiRequestError("Saved generation not found.")
+    if response.status_code == 409:
+        return ApiRequestError("Request conflicts with the current resource state.")
+    if response.status_code == 413:
+        return ApiRequestError("Uploaded file is too large.")
     if response.status_code == 502:
         return ApiResponseError("Local provider returned an invalid response.")
     if response.status_code == 503:

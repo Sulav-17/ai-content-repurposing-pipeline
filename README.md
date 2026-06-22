@@ -561,6 +561,36 @@ Generated results are shown as structured sections for the content brief, YouTub
 
 Use the Saved History tab to list saved generations, page through results, refresh history, open a full saved record, download its Markdown, and delete records after explicit confirmation. History list rows do not include the original transcript or Markdown; full records are fetched before viewing or download.
 
+Use the Media Jobs tab to upload an audio or video file, choose the deterministic or local Ollama provider, optionally save the generated result, and manually refresh job status. Completed jobs show the transcript, structured generated assets, saved generation ID when persisted, and Markdown download.
+
+## Local Media Jobs
+
+Media jobs use Redis and RQ for background processing, FFmpeg for local media conversion, and whisper.cpp for local transcription. Existing text generation endpoints continue to work without Redis, FFmpeg, or whisper.cpp.
+
+Configure the local services and executables in `.env`:
+
+```env
+REDIS_URL=redis://localhost:6379/0
+RQ_QUEUE_NAME=media-processing
+MEDIA_UPLOAD_DIR=.data/uploads
+MEDIA_MAX_UPLOAD_MB=200
+MEDIA_JOB_TIMEOUT_SECONDS=3600
+MEDIA_JOB_RESULT_TTL_SECONDS=86400
+MEDIA_JOB_FAILURE_TTL_SECONDS=86400
+FFMPEG_EXECUTABLE=ffmpeg
+WHISPER_CPP_EXECUTABLE=
+WHISPER_CPP_MODEL_PATH=
+WHISPER_CPP_THREADS=4
+```
+
+Start Redis separately, then run a Windows-compatible RQ worker with `SpawnWorker`:
+
+```powershell
+python -m rq worker -w rq.worker.SpawnWorker media-processing --url redis://localhost:6379/0
+```
+
+The worker expects local FFmpeg and whisper.cpp executables plus a local whisper.cpp model path. The application does not download models or call paid transcription APIs.
+
 ## Run Tests
 
 ```powershell
@@ -571,13 +601,13 @@ python -m pytest -q
 
 - Transcript input is JSON-only pasted text.
 - Transcript file uploads are not implemented.
-- Audio and video uploads are not implemented.
-- Transcription is not implemented.
+- Audio and video uploads require local Redis, FFmpeg, whisper.cpp, and a locally configured model.
+- Transcription is local-only through whisper.cpp and does not include diarization, translation, or subtitle editing.
 - Social-media publishing and automatic video clipping are not implemented.
 - The analyzer is intentionally simple and deterministic; it does not understand semantics, abbreviations, sentiment, or topics.
 - No paid AI provider integration is implemented or required.
 - Ollama support is optional and local; automated tests do not require a real Ollama server.
-- No authentication, users, ownership, soft deletion, search, background job system, frontend, Docker setup, deployment, or CI/CD is implemented.
-- The frontend is local Streamlit only and does not provide authentication, uploads, publishing, or multi-user access control.
+- No authentication, users, ownership, soft deletion, search, Docker setup, deployment, or CI/CD is implemented.
+- The frontend is local Streamlit only and does not provide authentication, publishing, or multi-user access control.
 
 Advanced infrastructure is intentionally deferred to future milestones.
