@@ -1,0 +1,74 @@
+[
+  {
+    "id": "technical-transcript",
+    "project_name": "Local API Pipeline",
+    "text": "Host: The FastAPI service validates transcript input before deterministic content generation. Guest: Pydantic schemas keep the API responses structured and repeatable.",
+    "expected_concepts": ["fastapi", "pydantic", "deterministic"],
+    "expects_timestamps": false,
+    "forbidden_phrases": ["100% accurate", "production customers"],
+    "unsupported_claim_patterns": ["\\b\\d+\\s*%\\s+accuracy\\b", "\\b\\d+\\s+production customers\\b"]
+  },
+  {
+    "id": "timestamped-transcript",
+    "project_name": "Timestamped Demo",
+    "text": "[00:05] Host: We introduce the local pipeline and explain deterministic generation.\n00:45 Guest: The saved history uses PostgreSQL through SQLAlchemy and Alembic.\n[01:30] Host: Media jobs use Redis and RQ before whisper.cpp transcription.",
+    "expected_concepts": ["pipeline", "postgresql", "redis"],
+    "expects_timestamps": true,
+    "forbidden_phrases": ["02:00", "99% faster"],
+    "unsupported_claim_patterns": ["\\b99\\s*%\\s+faster\\b"]
+  },
+  {
+    "id": "sparse-transcript",
+    "project_name": "Sparse Source",
+    "text": "Host: Local tools help. Guest: Keep outputs grounded.",
+    "expected_concepts": ["local", "grounded"],
+    "expects_timestamps": false,
+    "forbidden_phrases": ["millions of users", "enterprise deployment"],
+    "unsupported_claim_patterns": ["\\bmillions of users\\b", "\\benterprise deployment\\b"]
+  },
+  {
+    "id": "irregular-whitespace",
+    "project_name": "Whitespace Cleanup",
+    "text": "  Host:\tTranscript   cleaning    removes   extra spaces.\r\n\r\nGuest:   The pipeline preserves punctuation, order, and capitalization.   ",
+    "expected_concepts": ["transcript", "cleaning", "punctuation"],
+    "expects_timestamps": false,
+    "forbidden_phrases": ["automatic editing team", "paid transcription"],
+    "unsupported_claim_patterns": ["\\bpaid transcription\\b"]
+  },
+  {
+    "id": "business-style-transcript",
+    "project_name": "Business Workflow",
+    "text": "Host: The workflow turns a planning discussion into a content brief. Guest: The team wants reusable YouTube, LinkedIn, short-form, and portfolio assets from one source.",
+    "expected_concepts": ["workflow", "youtube", "linkedin"],
+    "expects_timestamps": false,
+    "forbidden_phrases": ["revenue increased", "customer growth"],
+    "unsupported_claim_patterns": ["\\brevenue increased\\b", "\\bcustomer growth\\b"]
+  },
+  {
+    "id": "source-numbers-claim-guard",
+    "project_name": "Numbered Source",
+    "text": "Host: The source mentions 3 review steps and 5 draft titles as planning constraints. Guest: It does not report revenue, users, accuracy, or time savings.",
+    "expected_concepts": ["review", "draft", "constraints"],
+    "expects_timestamps": false,
+    "forbidden_phrases": ["10x growth", "95% accuracy", "500 users", "$1000 revenue"],
+    "unsupported_claim_patterns": ["\\b10x growth\\b", "\\b95\\s*%\\s+accuracy\\b", "\\b500 users\\b", "\\$1000\\s+revenue\\b"]
+  },
+  {
+    "id": "mixed-capitalization",
+    "project_name": "Mixed Case Pipeline",
+    "text": "HOST: FastAPI and PYDANTIC appear in mixed capitalization. Guest: deterministic output should still use stable keyword handling.",
+    "expected_concepts": ["fastapi", "pydantic", "keyword"],
+    "expects_timestamps": false,
+    "forbidden_phrases": ["cloud deployment", "public launch"],
+    "unsupported_claim_patterns": ["\\bcloud deployment\\b", "\\bpublic launch\\b"]
+  },
+  {
+    "id": "multi-format-source",
+    "project_name": "Multi Format Source",
+    "text": "Host: This transcript can become a YouTube description, a LinkedIn post, short hooks, portfolio notes, and a Markdown export. Guest: Each output should stay tied to the original source.",
+    "expected_concepts": ["youtube", "linkedin", "markdown"],
+    "expects_timestamps": false,
+    "forbidden_phrases": ["viral campaign", "guaranteed results"],
+    "unsupported_claim_patterns": ["\\bviral campaign\\b", "\\bguaranteed results\\b"]
+  }
+]
