@@ -7,3 +7,4 @@ python-dotenv
 sqlalchemy
 alembic
 psycopg[binary]
+streamlit

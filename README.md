@@ -32,6 +32,8 @@ The content-generation endpoint reuses the content-brief workflow, then creates 
 
 The generation-history endpoints persist complete generated outputs only when explicitly requested through `POST /generations`. The stateless `POST /content/generate` endpoint does not save records.
 
+The Streamlit frontend communicates with FastAPI over HTTP for preview generation, saved generation, history browsing, full-record viewing, confirmed deletion, and Markdown downloads.
+
 ## Current Repository Structure
 
 ```text
@@ -91,6 +93,12 @@ ai-content-repurposing-pipeline/
 |-- prompts/
 |   |-- content_assets.txt
 |   `-- content_brief.txt
+|-- frontend/
+|   |-- __init__.py
+|   |-- api_client.py
+|   |-- app.py
+|   |-- config.py
+|   `-- renderers.py
 |-- migrations/
 |   |-- env.py
 |   |-- script.py.mako
@@ -103,6 +111,7 @@ ai-content-repurposing-pipeline/
 |   |   |-- test_generation_api.py
 |   |   |-- test_generations_api.py
 |   |   |-- test_migrations.py
+|   |   |-- test_streamlit_app.py
 |   |   `-- test_transcript_api.py
 |   |-- unit/
 |   |   |-- test_content_analysis_service.py
@@ -110,6 +119,8 @@ ai-content-repurposing-pipeline/
 |   |   |-- test_content_generation_service.py
 |   |   |-- test_deterministic_generation_provider.py
 |   |   |-- test_deterministic_provider.py
+|   |   |-- test_frontend_api_client.py
+|   |   |-- test_frontend_renderers.py
 |   |   |-- test_generation_history_service.py
 |   |   |-- test_generation_repository.py
 |   |   |-- test_markdown_export_service.py
@@ -178,6 +189,24 @@ Create a new migration after future model changes:
 ```powershell
 python -m uvicorn backend.main:app --reload
 ```
+
+## Run the Streamlit Frontend
+
+Start FastAPI and Streamlit in separate terminals:
+
+```powershell
+python -m uvicorn backend.main:app --reload
+python -m streamlit run frontend/app.py
+```
+
+The frontend reads API settings from `.env` or the environment:
+
+```text
+API_BASE_URL=http://127.0.0.1:8000
+API_TIMEOUT_SECONDS=30
+```
+
+The frontend uses FastAPI over HTTP only. It does not import database models, repositories, backend services, providers, or database sessions.
 
 ## Health Endpoint
 
@@ -524,6 +553,14 @@ If database configuration is missing or unavailable, database endpoints return `
 
 Automated tests use temporary SQLite databases and FastAPI dependency overrides. PostgreSQL is not required for the automated test suite.
 
+## Streamlit Frontend Workflow
+
+Use the Generate tab to enter a project name, transcript text, and provider. `Generate Preview` calls `POST /content/generate` and does not save the result. `Generate and Save` calls `POST /generations` and returns a saved record.
+
+Generated results are shown as structured sections for the content brief, YouTube assets, LinkedIn post, short-form hooks, video concepts, portfolio notes, and Markdown preview. The Markdown download filename is derived safely from the project name with a deterministic fallback.
+
+Use the Saved History tab to list saved generations, page through results, refresh history, open a full saved record, download its Markdown, and delete records after explicit confirmation. History list rows do not include the original transcript or Markdown; full records are fetched before viewing or download.
+
 ## Run Tests
 
 ```powershell
@@ -541,5 +578,6 @@ python -m pytest -q
 - No paid AI provider integration is implemented or required.
 - Ollama support is optional and local; automated tests do not require a real Ollama server.
 - No authentication, users, ownership, soft deletion, search, background job system, frontend, Docker setup, deployment, or CI/CD is implemented.
+- The frontend is local Streamlit only and does not provide authentication, uploads, publishing, or multi-user access control.
 
 Advanced infrastructure is intentionally deferred to future milestones.
