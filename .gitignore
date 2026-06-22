@@ -46,3 +46,16 @@ models/*.pt
 # Operating system files
 .DS_Store
 Thumbs.db
+
+# Local planning documents
+docs/milestones/
+docs/screenshots/README.md
+
+# Local planning and portfolio-preparation documents
+AGENTS.md
+docs/milestones/
+docs/screenshots/README.md
+docs/release-checklist.md
+docs/demo-script.md
+docs/resume-bullets.md
+docs/content/
