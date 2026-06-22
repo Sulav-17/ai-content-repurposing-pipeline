@@ -44,6 +44,12 @@ jobs:
       - name: Run core Compose smoke test
         run: python scripts/compose_smoke_test.py
 
+      - name: Show Compose diagnostics on failure
+        if: failure()
+        run: |
+          docker compose --env-file .env.docker ps -a
+          docker compose --env-file .env.docker logs --no-color --tail=200 api frontend postgres redis migrate
+
       - name: Tear down Compose stack
         if: always()
         run: docker compose --env-file .env.docker down -v

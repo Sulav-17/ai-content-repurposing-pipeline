@@ -106,7 +106,7 @@ def get_status(url: str) -> int:
             return response.status
     except urllib.error.HTTPError as exc:
         return exc.code
-    except urllib.error.URLError:
+    except (urllib.error.URLError, ConnectionError, OSError, TimeoutError):
         return 0
 
 

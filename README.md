@@ -4,7 +4,15 @@ Local-first FastAPI and Streamlit pipeline for turning transcripts or local medi
 
 ## Demo And Screenshots
 
-Screenshots are not committed or fabricated. Use the capture checklist in [docs/screenshots/README.md](docs/screenshots/README.md) and the demo walkthrough in [docs/demo-script.md](docs/demo-script.md).
+The repository includes public screenshots from the local workflow:
+
+- [Generate preview](docs/screenshots/01-generate-preview.png)
+- [Generated assets](docs/screenshots/02-generated-assets.png)
+- [Saved history](docs/screenshots/03-saved-history.png)
+- [Completed media job](docs/screenshots/04-media-job-complete.png)
+- [FastAPI docs](docs/screenshots/05-api-swagger.png)
+- [Docker Compose services](docs/screenshots/06-docker-compose-services.png)
+- [Tests passing](docs/screenshots/07-tests-passing.png)
 
 ## Key Capabilities
 
@@ -309,7 +317,7 @@ prompts/      Local prompt templates for optional Ollama
 migrations/   Alembic environment and database migration
 scripts/      Evaluation and Compose smoke-test scripts
 tests/        Unit, integration, and evaluation tests
-docs/         Architecture, evaluation, release, demo, and portfolio docs
+docs/         Architecture, evaluation, release, portfolio docs, and screenshots
 models/       README plus ignored local model binaries
 ```
 
@@ -357,8 +365,7 @@ No software license has been added.
 
 - [CHANGELOG.md](CHANGELOG.md)
 - [docs/releases/v1.0.0.md](docs/releases/v1.0.0.md)
-- [docs/release-checklist.md](docs/release-checklist.md)
-- [docs/resume-bullets.md](docs/resume-bullets.md)
-- [docs/content/youtube-demo-script.md](docs/content/youtube-demo-script.md)
-- [docs/content/linkedin-launch-post.md](docs/content/linkedin-launch-post.md)
-- [docs/content/short-form-video-script.md](docs/content/short-form-video-script.md)
+- [docs/architecture.md](docs/architecture.md)
+- [docs/evaluation.md](docs/evaluation.md)
+- [docs/evaluation-results.md](docs/evaluation-results.md)
+- [docs/portfolio-case-study.md](docs/portfolio-case-study.md)
