@@ -5,6 +5,7 @@ venv/
 # Environment and secrets
 .env
 .env.local
+.env.docker
 
 # Python cache files
 __pycache__/
@@ -13,6 +14,7 @@ __pycache__/
 
 # Test and coverage files
 .pytest_cache/
+.pytest-tmp-*/
 .coverage
 htmlcov/
 
@@ -30,6 +32,11 @@ dist/
 
 # Local media/job artifacts
 .data/
+
+# Local model binaries
+models/*.bin
+models/*.gguf
+models/*.pt
 
 # Editors
 .vscode/

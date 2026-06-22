@@ -16,6 +16,16 @@ class Settings:
 
 
 @dataclass(frozen=True)
+class RuntimeSettings:
+    app_env: str
+    log_level: str
+    trusted_hosts: tuple[str, ...]
+    security_headers_enabled: bool
+    readiness_require_database: bool
+    readiness_require_redis: bool
+
+
+@dataclass(frozen=True)
 class MediaSettings:
     redis_url: str
     rq_queue_name: str
@@ -45,6 +55,17 @@ def get_settings() -> Settings:
     )
 
 
+def get_runtime_settings() -> RuntimeSettings:
+    return RuntimeSettings(
+        app_env=os.getenv("APP_ENV", "development").strip() or "development",
+        log_level=_log_level("LOG_LEVEL", "INFO"),
+        trusted_hosts=_trusted_hosts(os.getenv("TRUSTED_HOSTS", "localhost,127.0.0.1,testserver")),
+        security_headers_enabled=_bool("SECURITY_HEADERS_ENABLED", True),
+        readiness_require_database=_bool("READINESS_REQUIRE_DATABASE", False),
+        readiness_require_redis=_bool("READINESS_REQUIRE_REDIS", False),
+    )
+
+
 def get_media_settings() -> MediaSettings:
     return MediaSettings(
         redis_url=os.getenv("REDIS_URL", "redis://localhost:6379/0"),
@@ -70,3 +91,39 @@ def _positive_int(name: str, default: int) -> int:
     if value <= 0:
         raise ValueError(f"{name} must be a positive integer.")
     return value
+
+
+def _log_level(name: str, default: str) -> str:
+    value = os.getenv(name, default).strip().upper()
+    allowed_levels = {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}
+    if value not in allowed_levels:
+        raise ValueError(f"{name} must be one of: {', '.join(sorted(allowed_levels))}.")
+    return value
+
+
+def _bool(name: str, default: bool) -> bool:
+    raw_value = os.getenv(name)
+    if raw_value is None:
+        return default
+    normalized_value = raw_value.strip().casefold()
+    if normalized_value in {"1", "true", "yes", "y", "on"}:
+        return True
+    if normalized_value in {"0", "false", "no", "n", "off"}:
+        return False
+    raise ValueError(f"{name} must be a boolean value.")
+
+
+def _trusted_hosts(raw_value: str) -> tuple[str, ...]:
+    seen_hosts: set[str] = set()
+    trusted_hosts: list[str] = []
+    for host in raw_value.split(","):
+        normalized_host = host.strip()
+        if not normalized_host or normalized_host in seen_hosts:
+            continue
+        seen_hosts.add(normalized_host)
+        trusted_hosts.append(normalized_host)
+
+    if "testserver" not in seen_hosts:
+        trusted_hosts.append("testserver")
+
+    return tuple(trusted_hosts)

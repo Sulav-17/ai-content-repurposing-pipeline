@@ -1,0 +1,174 @@
+services:
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB is required}
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app
+
+  redis:
+    image: redis:8-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app
+
+  migrate:
+    build:
+      context: .
+      target: api
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:?POSTGRES_USER is required}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:?POSTGRES_DB is required}
+    command: ["alembic", "upgrade", "head"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+    networks:
+      - app
+
+  api:
+    build:
+      context: .
+      target: api
+    environment:
+      APP_ENV: ${APP_ENV:-production}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      TRUSTED_HOSTS: ${TRUSTED_HOSTS:-localhost,127.0.0.1,testserver,api}
+      SECURITY_HEADERS_ENABLED: ${SECURITY_HEADERS_ENABLED:-true}
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:?POSTGRES_USER is required}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:?POSTGRES_DB is required}
+      REDIS_URL: redis://redis:6379/0
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-}
+      OLLAMA_TIMEOUT_SECONDS: ${OLLAMA_TIMEOUT_SECONDS:-60}
+      RQ_QUEUE_NAME: ${RQ_QUEUE_NAME:-media-processing}
+      MEDIA_UPLOAD_DIR: /app/.data/uploads
+      MEDIA_MAX_UPLOAD_MB: ${MEDIA_MAX_UPLOAD_MB:-200}
+      MEDIA_JOB_TIMEOUT_SECONDS: ${MEDIA_JOB_TIMEOUT_SECONDS:-3600}
+      MEDIA_JOB_RESULT_TTL_SECONDS: ${MEDIA_JOB_RESULT_TTL_SECONDS:-86400}
+      MEDIA_JOB_FAILURE_TTL_SECONDS: ${MEDIA_JOB_FAILURE_TTL_SECONDS:-86400}
+      READINESS_REQUIRE_DATABASE: "true"
+      READINESS_REQUIRE_REDIS: "true"
+    ports:
+      - "8000:8000"
+    volumes:
+      - media_uploads:/app/.data/uploads
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/ready', timeout=5).read()",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    init: true
+    restart: unless-stopped
+    user: "10001:10001"
+    networks:
+      - app
+
+  frontend:
+    build:
+      context: .
+      target: frontend
+    environment:
+      API_BASE_URL: http://api:8000
+    ports:
+      - "8501:8501"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8501/_stcore/health', timeout=5).read()",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    depends_on:
+      api:
+        condition: service_healthy
+    init: true
+    restart: unless-stopped
+    user: "10001:10001"
+    networks:
+      - app
+
+  worker:
+    profiles:
+      - media
+    build:
+      context: .
+      target: worker
+    environment:
+      APP_ENV: ${APP_ENV:-production}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      TRUSTED_HOSTS: ${TRUSTED_HOSTS:-localhost,127.0.0.1,testserver,api}
+      SECURITY_HEADERS_ENABLED: ${SECURITY_HEADERS_ENABLED:-true}
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:?POSTGRES_USER is required}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:?POSTGRES_DB is required}
+      REDIS_URL: redis://redis:6379/0
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-}
+      OLLAMA_TIMEOUT_SECONDS: ${OLLAMA_TIMEOUT_SECONDS:-60}
+      RQ_QUEUE_NAME: ${RQ_QUEUE_NAME:-media-processing}
+      MEDIA_UPLOAD_DIR: /app/.data/uploads
+      MEDIA_MAX_UPLOAD_MB: ${MEDIA_MAX_UPLOAD_MB:-200}
+      MEDIA_JOB_TIMEOUT_SECONDS: ${MEDIA_JOB_TIMEOUT_SECONDS:-3600}
+      MEDIA_JOB_RESULT_TTL_SECONDS: ${MEDIA_JOB_RESULT_TTL_SECONDS:-86400}
+      MEDIA_JOB_FAILURE_TTL_SECONDS: ${MEDIA_JOB_FAILURE_TTL_SECONDS:-86400}
+      FFMPEG_EXECUTABLE: /usr/bin/ffmpeg
+      WHISPER_CPP_EXECUTABLE: /usr/local/bin/whisper-cli
+      WHISPER_CPP_MODEL_PATH: /models/ggml-base.bin
+      WHISPER_CPP_THREADS: ${WHISPER_CPP_THREADS:-4}
+    volumes:
+      - media_uploads:/app/.data/uploads
+      - ./models:/models:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    init: true
+    restart: unless-stopped
+    user: "10001:10001"
+    networks:
+      - app
+
+volumes:
+  postgres_data:
+  redis_data:
+  media_uploads:
+
+networks:
+  app:
+    driver: bridge

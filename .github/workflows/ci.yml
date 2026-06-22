@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test-build-smoke:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+
+      - name: Install requirements
+        run: python -m pip install -r requirements.txt
+
+      - name: Run Python tests
+        run: python -m pytest -q
+
+      - name: Create Docker environment
+        run: cp .env.docker.example .env.docker
+
+      - name: Validate Compose configuration
+        run: docker compose --env-file .env.docker config
+
+      - name: Build API image
+        run: docker build --target api -t ai-content-pipeline-api:ci .
+
+      - name: Build frontend image
+        run: docker build --target frontend -t ai-content-pipeline-frontend:ci .
+
+      - name: Build worker image without model
+        run: docker build --target worker -t ai-content-pipeline-worker:ci .
+
+      - name: Start core Compose stack
+        run: docker compose --env-file .env.docker up --build -d postgres redis migrate api frontend
+
+      - name: Run core Compose smoke test
+        run: python scripts/compose_smoke_test.py
+
+      - name: Tear down Compose stack
+        if: always()
+        run: docker compose --env-file .env.docker down -v

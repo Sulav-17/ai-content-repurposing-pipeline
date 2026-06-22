@@ -591,6 +591,144 @@ python -m rq worker -w rq.worker.SpawnWorker media-processing --url redis://loca
 
 The worker expects local FFmpeg and whisper.cpp executables plus a local whisper.cpp model path. The application does not download models or call paid transcription APIs.
 
+## Health And Readiness
+
+The original health endpoint remains available:
+
+```text
+GET /health
+```
+
+Additional runtime checks are available for container orchestration:
+
+```text
+GET /health/live
+GET /health/ready
+```
+
+`/health/live` only confirms that the FastAPI process is running. It does not connect to PostgreSQL or Redis.
+
+`/health/ready` checks PostgreSQL and Redis only when configured with:
+
+```env
+READINESS_REQUIRE_DATABASE=true
+READINESS_REQUIRE_REDIS=true
+```
+
+When a dependency is not required, readiness reports it as `skipped`. When a required dependency is unavailable, readiness returns `503` with safe status labels only.
+
+## Docker Compose Workflow
+
+Docker is an additional execution option. Native Windows development with local PostgreSQL, WSL Redis, native FFmpeg, native whisper.cpp, Streamlit, deterministic generation, optional Ollama, saved history, and media jobs remains supported.
+
+Prerequisite: Docker Desktop with Docker Compose.
+
+Create a Docker environment file:
+
+```powershell
+Copy-Item .env.docker.example .env.docker
+```
+
+Edit `.env.docker` before starting the stack. The example contains URL-safe placeholder credentials only. If a PostgreSQL password contains special characters, URL-encode it before using it in connection strings.
+
+Validate Compose configuration:
+
+```powershell
+docker compose --env-file .env.docker config
+```
+
+Start the core stack:
+
+```powershell
+docker compose --env-file .env.docker up --build -d
+```
+
+The core stack starts PostgreSQL, Redis, the Alembic migration service, FastAPI, and Streamlit. PostgreSQL and Redis are available only on the private Docker network and do not publish host ports by default.
+
+Run the core smoke test:
+
+```powershell
+python scripts/compose_smoke_test.py
+```
+
+Follow logs:
+
+```powershell
+docker compose --env-file .env.docker logs -f
+```
+
+Run migrations manually if needed:
+
+```powershell
+docker compose --env-file .env.docker run --rm migrate
+```
+
+Rebuild images:
+
+```powershell
+docker compose --env-file .env.docker build
+```
+
+Stop the stack:
+
+```powershell
+docker compose --env-file .env.docker down
+```
+
+Destructive reset:
+
+```powershell
+docker compose --env-file .env.docker down -v
+```
+
+`down -v` permanently deletes containerized PostgreSQL and Redis data.
+
+### Media Profile
+
+The media worker is optional and runs under the `media` profile:
+
+```powershell
+docker compose --env-file .env.docker --profile media up --build -d
+```
+
+Place a compatible whisper.cpp model at:
+
+```text
+models/ggml-base.bin
+```
+
+Model files are ignored by Git and are never downloaded automatically. Review model licenses and storage requirements before adding a model.
+
+Run the optional media smoke test with a local media file:
+
+```powershell
+python scripts/compose_media_smoke_test.py path\to\sample.mp3
+```
+
+### Worker Commands
+
+Native Windows development uses the Windows-compatible RQ strategy documented for local media jobs:
+
+```powershell
+python -m rq worker -w rq.worker.SpawnWorker media-processing --url redis://localhost:6379/0
+```
+
+Linux containers use the normal RQ worker:
+
+```text
+rq worker media-processing --url redis://redis:6379/0
+```
+
+Do not use Windows worker workarounds such as `SimpleWorker` inside Linux containers.
+
+### Troubleshooting
+
+- If `/health/ready` returns `503`, check Docker health status for PostgreSQL and Redis.
+- If media jobs fail in Docker, verify that `models/ggml-base.bin` exists and that the media profile worker is running.
+- If uploads fail, confirm the shared `media_uploads` volume is mounted by both API and worker.
+- If the frontend cannot reach the API in Docker, verify `API_BASE_URL=http://api:8000`.
+- If native Windows media jobs fail, verify local Redis, FFmpeg, whisper.cpp, and model paths in `.env`.
+
 ## Run Tests
 
 ```powershell
@@ -607,7 +745,7 @@ python -m pytest -q
 - The analyzer is intentionally simple and deterministic; it does not understand semantics, abbreviations, sentiment, or topics.
 - No paid AI provider integration is implemented or required.
 - Ollama support is optional and local; automated tests do not require a real Ollama server.
-- No authentication, users, ownership, soft deletion, search, Docker setup, deployment, or CI/CD is implemented.
+- No authentication, users, ownership, soft deletion, search, deployment, or CI/CD deployment is implemented.
 - The frontend is local Streamlit only and does not provide authentication, publishing, or multi-user access control.
 
 Advanced infrastructure is intentionally deferred to future milestones.
